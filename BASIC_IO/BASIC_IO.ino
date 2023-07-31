@@ -22,13 +22,20 @@
 //8 - 52, 82
 //9 - 4A, 74
 
-#include <LiquidCrystal_I2C.h>
+#include <ArducamSSD1306.h>
+
+#include "DHT.h"
+#define DHTTYPE DHT11
 
 //Specify decode protocol
 #define DECODE_NEC
 #include <IRremote.hpp>
 
-LiquidCrystal_I2C lcd(0x27, 16, 2);
+#define OLED_RESET  16
+
+ArducamSSD1306 oled(OLED_RESET);
+DHT dht()
+
 const byte REC_PIN = 7;
 
 //Button constants
@@ -52,11 +59,9 @@ const byte FIVE = 28;
 const byte SIX = 90;
 const byte SEVEN = 66;
 const byte EIGHT = 82;
-const byte NINE = 74; 
+const byte NINE = 74;                               
 
-const String noPrgmMsg = "Btn Lacks A Prgm";
-
-const byte NUMBERS[] = {ZERO, ONE, TWO, THREE, FOUR, FIVE, SIX, SEVEN, EIGHT, NINE};
+bool oledOn = false;
 
 void setup() {
 
@@ -64,203 +69,219 @@ void setup() {
   IrReceiver.begin(REC_PIN, ENABLE_LED_FEEDBACK);
   
   //Setup LCD
-  lcd.begin();
-  lcd.backlight();
-  lcd.clear();
-  executeCommand(PWR);
+  oled.begin();
+  oled.clearDisplay();
+  oled.setTextSize(1);
+  oled.setTextColor(WHITE);
 
+  //Randomize seed
   randomSeed(analogRead(0));
 }
 
 void loop() {
-   if(IrReceiver.decode()){
-      executeCommand(IrReceiver.decodedIRData.command);
-      IrReceiver.resume();
-   }
-}
-
-//void gamble() {
-//  byte luckyNum = random(1, 11);
-//  lcd.clear();
-//  lcd.setCursor(0,0);
-//  lcd.print("Pick Num 1-10");
-//  bool validNumGiven = false;
-//  while(!validNumGiven) {
-//    if(IrReceiver.decode()){
-//      for (byte i = 0; i < 10; i++) {
-//        if(IrReceiver.decodedIRData.command == NUMBERS[i]){
-//          
-//        }
-//      }
-//    }
-//  }
-//}
-
-void coinFlip() {
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print("Flipping...");
-  byte result = random(2);
-  delay(2000);
-  lcd.clear();
-  lcd.setCursor(0,0);
-  lcd.print(result);
-  lcd.setCursor(0,1);
-  if(result == 0) {
-    lcd.print("HEADS");
-  }
-  if (result == 1) {
-    lcd.print("TAILS");
+  if(IrReceiver.decode()){
+    executeCommand(IrReceiver.decodedIRData.command);
+    IrReceiver.resume();
   }
 }
+
+void printTitle(String title, char underlineChar = '=', bool clearDisp = true, bool updateDisp = true) {
+  if(clearDisp) {
+    oled.clearDisplay();
+  }
+  oled.setCursor(0,0);
+  oled.print(title);
+  oled.setCursor(0,10);
+  String underline = "";
+  for (byte i = 0; i < 21; i++) {
+    underline.concat(underlineChar);
+  }
+  oled.print(underline);
+  if(updateDisp) {
+    oled.display();
+  }
+}
+
+void reportNoProgram(String buttonName) {
+  printTitle(buttonName, '~', true, false);
+  oled.setCursor(0, 20);
+  oled.print("Button has no program");
+  printHelpMessage();
+  oled.display();
+}
+
+void printHelpMessage() {
+  oled.setCursor(0, 40);
+  oled.print("Press FUNC/STOP for a");
+  oled.setCursor(0, 50);
+  oled.print("list of programs.");
+}
+
+void gotoTitleScreen() {
+  printTitle("Ino OS v0.2", '=', true, false);
+  oled.setCursor(0, 20);
+  oled.print("Press any button.");
+  oled.setCursor(0, 30);
+  oled.print(" -OR-");
+  printHelpMessage();
+  oled.display();
+}
+
+void printProgramList() {
+  printTitle("Program Guide", '+', true, false);
+  oled.setCursor(0, 20);
+  oled.print("VOL+ : Dice Roller");
+  oled.setCursor(0, 30);
+  oled.print("VOL- : Coin Flip");
+  oled.setCursor(0, 40);
+  oled.print("EQ : Temp & Hum");
+  oled.setCursor(0, 50);
+  oled.print("ST/REPT : Cool Quote");
+  oled.display();
+}
+
+void printCoolQuote() {
+  const String mandelaQuote[] = {
+    "It always seems",
+    "impossible until it",
+    "is done.",
+    "    -- Nelson Mandela"
+  };
+
+  const String rooneyQuote[] = {
+    "You always pass",
+    "failure on the way to",
+    "success.",
+    "     -- Mickey Rooney"
+  };
+
+  const String kitchenQuote[] = {
+    "Never invite",
+    "pessimism without",
+    "inviting optimism.",
+    "     -- Jared Kitchen"
+  };
+
+  const String quotes [][4] = {
+    mandelaQuote,
+    rooneyQuote,
+    kitchenQuote
+  };
+
+  int luckyNum = random(3);
+  String chosenQuote [4] = quotes[luckyNum];
+
+  printTitle("Cool Quote", '-', true, false);
+  oled.setCursor(0, 20);
+  oled.print(chosenQuote[0]);
+  oled.setCursor(0,30);
+  oled.print(chosenQuote[1]);
+  oled.setCursor(0, 40);
+  oled.print(chosenQuote[2]);
+  oled.setCursor(0, 50);
+  oled.print(chosenQuote[3]);
+  oled.display();
+}
+
 void executeCommand(int command) {
-  switch(command) {
-    //PLAY/PAUSE
-    case PWR:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("Ino OS v0.1");
-      lcd.setCursor(0,1);
-      lcd.print("Push Any Button");
-      break;
-    case VOL_UP:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("VOL+");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case FUNC:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("FUNC/STOP");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case REV:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("REVERSE");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case PLAY:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("PLAY/PAUSE");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case FWD:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("FORWARD");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case DWN:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("DOWN");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case VOL_DWN:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("VOL-");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case UP:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("UP");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case ZERO:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("0");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case EQ:
-      coinFlip();
-      break;
-    case ST:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("ST/REPT");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case ONE:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("1");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case TWO:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("2");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case THREE:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("3");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case FOUR:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("4");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case FIVE:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("5");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case SIX:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("6");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case SEVEN:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("7");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case EIGHT:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("8");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    case NINE:
-      lcd.clear();
-      lcd.setCursor(0,0);
-      lcd.print("9");
-      lcd.setCursor(0,1);
-      lcd.print(noPrgmMsg);
-      break;
-    // Do nothing if revciver reads an unknown input
+
+  //Below vairables used for reporting a button with no associated program
+  bool noProgram = false;
+  String buttonName = "";
+  if (command == PWR) {
+    if(oledOn) {
+      oled.clearDisplay();
+      oled.display();
+    }
+    else {
+      gotoTitleScreen();
+    }
+    oledOn = !oledOn;
+  }
+  if (oledOn) {
+    switch(command) {
+      case VOL_UP:
+        noProgram = true;
+        buttonName = "VOL+";
+        break;
+      case FUNC:
+        printProgramList();
+        break;
+      case REV:
+        noProgram = true;
+        buttonName = "REVERSE";
+        break;
+      case PLAY:
+        noProgram = true;
+        buttonName = "PLAY/PAUSE";
+        break;
+      case FWD:
+        noProgram = true;
+        buttonName = "FORWARD";
+        break;
+      case DWN:
+        noProgram = true;
+        buttonName = "DOWN";
+        break;
+      case VOL_DWN:
+        noProgram = true;
+        buttonName = "VOL-";
+        break;
+      case UP:
+        noProgram = true;
+        buttonName = "UP";
+        break;
+      case ZERO:
+        noProgram = true;
+        buttonName = "NUMBER 0";
+        break;
+      case EQ:
+        noProgram = true;
+        buttonName = "EQ";
+        break;
+      case ST:
+        printCoolQuote();
+        break;
+      case ONE:
+        noProgram = true;
+        buttonName = "NUMBER 1";
+        break;
+      case TWO:
+        noProgram = true;
+        buttonName = "NUMBER 2";
+        break;
+      case THREE:
+        noProgram = true;
+        buttonName = "NUMBER 3";
+        break;
+      case FOUR:
+        noProgram = true;
+        buttonName = "NUMBER 4";
+        break;
+      case FIVE:
+        noProgram = true;
+        buttonName = "NUMBER 5";
+        break;
+      case SIX:
+        noProgram = true;
+        buttonName = "NUMBER 6";
+        break;
+      case SEVEN:
+        noProgram = true;
+        buttonName = "NUMBER 7";
+        break;
+      case EIGHT:
+        noProgram = true;
+        buttonName = "NUMBER 8";
+        break;
+      case NINE:
+        noProgram = true;
+        buttonName = "NUMBER 9";
+        break;
+      // Do nothing if receiver reads an unknown code
+    }
+    if(noProgram) {
+      reportNoProgram(buttonName);
+    }
   }
 }
