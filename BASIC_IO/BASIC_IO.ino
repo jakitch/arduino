@@ -23,20 +23,18 @@
 //9 - 4A, 74
 
 #include <ArducamSSD1306.h>
-
-#include "DHT.h"
-#define DHTTYPE DHT11
+#define OLED_RESET  16
+ArducamSSD1306 oled(OLED_RESET);
 
 //Specify decode protocol
 #define DECODE_NEC
 #include <IRremote.hpp>
+#define REC_PIN 7
 
-#define OLED_RESET  16
-
-ArducamSSD1306 oled(OLED_RESET);
-DHT dht()
-
-const byte REC_PIN = 7;
+#include "DHT.h"
+#define DHTPIN 2
+#define DHTTYPE DHT11
+DHT dht(DHTPIN, DHTTYPE);
 
 //Button constants
 const byte PWR = 69;
@@ -73,6 +71,10 @@ void setup() {
   oled.clearDisplay();
   oled.setTextSize(1);
   oled.setTextColor(WHITE);
+
+
+  //Setup DHT
+  dht.begin();
 
   //Randomize seed
   randomSeed(analogRead(0));
@@ -183,6 +185,30 @@ void printCoolQuote() {
   oled.display();
 }
 
+void displayTempAndHum() {
+  short temp = 9999;
+  byte hum = 0;
+  while(true) {
+    short nextTemp = dht.readTemperature(true);
+    byte nextHum = dht.readHumidity();
+    if(nextTemp != temp || nextHum != hum) {
+      temp = nextTemp;
+      hum = nextHum;
+      printTitle("Temp and Humidity", '-', true, false);
+      oled.setCursor(0, 20);
+      oled.print("Temperature: ");
+      oled.print(temp);
+      oled.print(" F");
+      oled.setCursor(0, 30);
+      oled.print("Humidity: ");
+      oled.print(hum);
+      oled.print("%");
+      oled.display();
+    }
+    delay(1000);
+  }
+}
+
 void executeCommand(int command) {
 
   //Below vairables used for reporting a button with no associated program
@@ -236,8 +262,7 @@ void executeCommand(int command) {
         buttonName = "NUMBER 0";
         break;
       case EQ:
-        noProgram = true;
-        buttonName = "EQ";
+        displayTempAndHum();
         break;
       case ST:
         printCoolQuote();
