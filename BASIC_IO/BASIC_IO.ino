@@ -31,7 +31,7 @@ ArducamSSD1306 oled(OLED_RESET);
 #include <IRremote.hpp>
 #define REC_PIN 7
 
-#include "DHT.h"
+#include <DHT.h>
 #define DHTPIN 2
 #define DHTTYPE DHT11
 DHT dht(DHTPIN, DHTTYPE);
@@ -59,9 +59,9 @@ const byte SEVEN = 66;
 const byte EIGHT = 82;
 const byte NINE = 74;                               
 
-bool oledOn = false;
-
 void setup() {
+
+  //Serial.begin(9600);
 
   //Setup IR
   IrReceiver.begin(REC_PIN, ENABLE_LED_FEEDBACK);
@@ -78,6 +78,9 @@ void setup() {
 
   //Randomize seed
   randomSeed(analogRead(0));
+
+  //launch OS
+  gotoTitleScreen();
 }
 
 void loop() {
@@ -186,11 +189,31 @@ void printCoolQuote() {
 }
 
 void displayTempAndHum() {
+  
+  IrReceiver.resume();
+
+  //Start with impossible values to force update
   short temp = 9999;
   byte hum = 0;
+
+  printTitle("Temp and Humidity", '-', true, true);
   while(true) {
+
+    //Quit program if power is pressed, otherwise resume the IR receiver
+    if(IrReceiver.decode()){
+      if(IrReceiver.decodedIRData.command == PWR) {
+        gotoTitleScreen();
+        break;
+      }
+      else {
+        IrReceiver.resume();
+      }
+    }
+
     short nextTemp = dht.readTemperature(true);
     byte nextHum = dht.readHumidity();
+
+    //only update oled if there was a change in temp or humidity
     if(nextTemp != temp || nextHum != hum) {
       temp = nextTemp;
       hum = nextHum;
@@ -203,9 +226,10 @@ void displayTempAndHum() {
       oled.print("Humidity: ");
       oled.print(hum);
       oled.print("%");
+      oled.setCursor(0, 50);
+      oled.print("Press PWR to quit.");
       oled.display();
     }
-    delay(1000);
   }
 }
 
@@ -214,99 +238,89 @@ void executeCommand(int command) {
   //Below vairables used for reporting a button with no associated program
   bool noProgram = false;
   String buttonName = "";
-  if (command == PWR) {
-    if(oledOn) {
-      oled.clearDisplay();
-      oled.display();
-    }
-    else {
+  switch(command) {
+    case PWR:
       gotoTitleScreen();
-    }
-    oledOn = !oledOn;
+      break;
+    case VOL_UP:
+      noProgram = true;
+      buttonName = "VOL+";
+      break;
+    case FUNC:
+      printProgramList();
+      break;
+    case REV:
+      noProgram = true;
+      buttonName = "REVERSE";
+      break;
+    case PLAY:
+      noProgram = true;
+      buttonName = "PLAY/PAUSE";
+      break;
+    case FWD:
+      noProgram = true;
+      buttonName = "FORWARD";
+      break;
+    case DWN:
+      noProgram = true;
+      buttonName = "DOWN";
+      break;
+    case VOL_DWN:
+      noProgram = true;
+      buttonName = "VOL-";
+      break;
+    case UP:
+      noProgram = true;
+      buttonName = "UP";
+      break;
+    case ZERO:
+      noProgram = true;
+      buttonName = "NUMBER 0";
+      break;
+    case EQ:
+      displayTempAndHum();
+      break;
+    case ST:
+      printCoolQuote();
+      break;
+    case ONE:
+      noProgram = true;
+      buttonName = "NUMBER 1";
+      break;
+    case TWO:
+      noProgram = true;
+      buttonName = "NUMBER 2";
+      break;
+    case THREE:
+      noProgram = true;
+      buttonName = "NUMBER 3";
+      break;
+    case FOUR:
+      noProgram = true;
+      buttonName = "NUMBER 4";
+      break;
+    case FIVE:
+      noProgram = true;
+      buttonName = "NUMBER 5";
+      break;
+    case SIX:
+      noProgram = true;
+      buttonName = "NUMBER 6";
+      break;
+    case SEVEN:
+      noProgram = true;
+      buttonName = "NUMBER 7";
+      break;
+    case EIGHT:
+      noProgram = true;
+      buttonName = "NUMBER 8";
+      break;
+    case NINE:
+      noProgram = true;
+      buttonName = "NUMBER 9";
+      break;
   }
-  if (oledOn) {
-    switch(command) {
-      case VOL_UP:
-        noProgram = true;
-        buttonName = "VOL+";
-        break;
-      case FUNC:
-        printProgramList();
-        break;
-      case REV:
-        noProgram = true;
-        buttonName = "REVERSE";
-        break;
-      case PLAY:
-        noProgram = true;
-        buttonName = "PLAY/PAUSE";
-        break;
-      case FWD:
-        noProgram = true;
-        buttonName = "FORWARD";
-        break;
-      case DWN:
-        noProgram = true;
-        buttonName = "DOWN";
-        break;
-      case VOL_DWN:
-        noProgram = true;
-        buttonName = "VOL-";
-        break;
-      case UP:
-        noProgram = true;
-        buttonName = "UP";
-        break;
-      case ZERO:
-        noProgram = true;
-        buttonName = "NUMBER 0";
-        break;
-      case EQ:
-        displayTempAndHum();
-        break;
-      case ST:
-        printCoolQuote();
-        break;
-      case ONE:
-        noProgram = true;
-        buttonName = "NUMBER 1";
-        break;
-      case TWO:
-        noProgram = true;
-        buttonName = "NUMBER 2";
-        break;
-      case THREE:
-        noProgram = true;
-        buttonName = "NUMBER 3";
-        break;
-      case FOUR:
-        noProgram = true;
-        buttonName = "NUMBER 4";
-        break;
-      case FIVE:
-        noProgram = true;
-        buttonName = "NUMBER 5";
-        break;
-      case SIX:
-        noProgram = true;
-        buttonName = "NUMBER 6";
-        break;
-      case SEVEN:
-        noProgram = true;
-        buttonName = "NUMBER 7";
-        break;
-      case EIGHT:
-        noProgram = true;
-        buttonName = "NUMBER 8";
-        break;
-      case NINE:
-        noProgram = true;
-        buttonName = "NUMBER 9";
-        break;
-      // Do nothing if receiver reads an unknown code
-    }
-    if(noProgram) {
-      reportNoProgram(buttonName);
-    }
+  if(noProgram) {
+    reportNoProgram(buttonName);
   }
 }
